@@ -1,0 +1,69 @@
+# Tabset/Reiter
+
+## Standard
+
+Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Donec quam felis, ultricies nec, pellentesque eu, pretium quis, sem.
+
+::: {.panel-tabset}
+
+## Irgendwas
+
+Hier folgt irgendein Inhalt.
+
+## Etwas anderes
+
+Das ist ein anderer Inhalt.
+
+## Definitionen
+
+Hier finden sich Definitionen.
+
+:::
+
+```md
+:::{.panel-tabset}
+
+## Irgendwas
+
+Hier folgt irgendein Inhalt.
+
+## Etwas anderes
+
+Das ist ein anderer Inhalt.
+
+## Definitionen
+
+Hier finden sich Definitionen.
+
+:::
+```
+
+## Klasse `nav-pills`
+
+Die Klasse `.nav-pills` bewirkt, dass der aktive Tab farbig hinterlegt wird.
+
+::: {.panel-tabset .nav-pills}
+
+## Irgendwas
+
+Hier folgt irgendein Inhalt.
+
+## Etwas anderes
+
+Das ist ein anderer Inhalt.
+:::
+
+```md
+::: {.panel-tabset .nav-pills}
+## Irgendwas
+
+Hier folgt irgendein Inhalt.
+
+## Etwas anderes
+
+Das ist ein anderer Inhalt.
+:::
+```
+
+
+

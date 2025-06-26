@@ -1,0 +1,108 @@
+# Tabellen
+
+Grundsätzlich müssen Tabellen in der Markdown-Syntax vorliegen (vgl. https://www.markdownguide.org/extended-syntax/#tables). Allerdings gibt es verschiedene Möglichkeiten, eine Tabelle in diesem Format zu generieren. Ausserdem fehlen bei einer einfachen Tabelle meistens die Metadaten (vgl. @sec-abb-bm).
+
+## Standard-Tabelle BM
+
+### komplett
+
+Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Donec quam felis, ultricies nec, pellentesque eu, pretium quis, sem.
+
+::: {#tbl-bm1 .tbl_bm}
+[Tabellenbeschriftung zweite Ebene]{.table-subcaption}
+
+```{r}
+#| label: tbl-bm1
+#| results: asis
+#| echo: false
+
+tbl <- tibble('Kanton' := c("ZH", "BE", "AG", "LU", "GR", "GL", "SG", "TG", "SZ", "ZG"),
+              'Wert' := as.integer(runif(10, 1,99), 0),
+              'Kategorie' := sample(factor(LETTERS), 10, replace = T))
+
+pander::pandoc.table(tbl)
+```
+
+[Daten: Bildungsplanung des Kantons Zürich]{.table-source}
+
+Titel einer Standard-Tabelle Bildungsmonitoring
+:::
+
+Nulla consequat massa quis enim. Donec pede justo, fringilla vel, aliquet nec, vulputate eget, arcu. In enim justo, rhoncus ut, imperdiet a, venenatis vitae, justo. Nullam dictum felis eu pede mollis pretium. Integer tincidunt. Cras dapibus. Vivamus elementum semper nisi. Aenean vulputate eleifend tellus.
+
+## einfache Tabelle
+
+```{r}
+#| label: tbl-simple
+#| tbl-cap: "Titel der einfachen Tabelle (linksbündig)"
+#| echo: fenced
+
+knitr::kable(tbl)
+```
+
+Ein Verweise auf die Tabelle (@tbl-simple) kann mit `@tbl-simple` eingefügt werden.
+
+### Markdown-Syntax
+
+```{r}
+#| echo: false
+pander::pandoc.table(tbl)
+```
+
+
+## Tabelle mit Filter- und Sortier-Funktionen
+
+Das package `DT` ermöglicht es, R-Datenobjekte als Tabellen in HTML-Seiten darzustellen. Diese Tabellen können gefiltert, sortiert, durchsucht und auf mehrere Seiten verteilt werden.
+
+```{r}
+#| label: tbl-dt
+#| tbl-cap: "Tabelle mit DT"
+#| echo: fenced
+
+data_table <- mtcars %>% 
+    mutate(Modell = rownames(.),
+           across(c(cyl, am, gear), as.factor)) %>% 
+    select(Modell, Zylinder = cyl, Hubraum = disp, PS = hp, Gewicht = wt, 
+           manuell = am, `Gänge` = gear) %>% 
+    arrange(Modell)
+
+DT::datatable(data_table, rownames = F, filter = "top")
+
+```
+
+## Tabelle mit `gt`
+
+Das Package [`gt`](https://gt.rstudio.com/) ermöglicht gut formatierte Tabellen mit komplexerer Struktur. Die gt-Philosophie: Tabellen werden mit einem zusammenhängenden Satz von Tabellenteilen konstruiert. Dazu gehören der Tabellenkopf, der Stub, die Spaltenbeschriftungen und Schlüsselspaltenbeschriftungen, der Tabellenkörper und die Tabellenfußzeile.
+
+```{r}
+#| echo: false
+n = 10
+nm_cols <- c('Mittelwert' = 'mean', 'Minimum' = 'min', 'Median' = 'median', 'Maximum' = 'max')
+data_table <- tibble('Jahr' := sample(1990:2021L, n, replace = T) %>% 
+                         biplaR::getSchoolYear(add_one = F),
+                     'Sekundarschulvariante' := sample(LETTERS[1:3], n, replace = T) %>%
+                         factor(),
+                     'Anzahl Schulen' := as.integer(runif(n, 15, 95))) %>%
+    bind_cols(purrr::map_dfr(1:n, ~FSA::Summarize(runif(10, 50, 600))) %>%
+                  select(all_of(nm_cols)) %>%
+                  mutate_all(as.integer))
+
+text <- list('sus' = "Anzahl Sch\u00FClerinnen und Sch\u00FCler",
+             'title' = 'Kennwerte zur Gr\u00F6sse der Schuleinheiten nach Sekundarschulvariante',
+             'source' = 'Bildungsplanung des Kantons Z\u00FCrich, 2023')
+```
+
+
+```{r}
+#| label: tbl-gt
+#| tbl-cap: "Kennwerte zur Grösse der Schuleinheiten nach Sekundarschulvariante"
+#| echo: fenced
+
+data_table %>%
+    gt::gt() %>%
+    gt:: tab_spanner(label = text$sus, columns = names(nm_cols)) %>%
+    # gt::tab_header(title = text$title) %>%
+    gt::tab_source_note(text$source)
+```
+
+Verweise auf die Tabelle (@tbl-gt) mit `@tbl-gt` einfügen.

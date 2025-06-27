@@ -1,0 +1,1314 @@
+---
+title: "Standardisierte Ehemaligenbefragung 2024"
+subtitle: "ERSTE ERGEBNISSE"
+
+date: last-modified
+lang: de
+language:
+  title-block-published: "Datum"
+format:
+    html:
+        theme: "../quarto_templates/style/bipla.scss"
+        toc: true
+        toc-location: left
+        toc-title: "Inhalt"
+        embed-resources: true
+        standalone: true
+        fig-width: 6
+        fig-height: 4
+        title-block-banner: "#0076BD"
+        css: "../quarto_templates/style/logo.css"
+
+fig-cap-location: top
+        
+execute:
+  echo: false
+  warning: false
+editor_options:
+  chunk_output_type: inline
+---
+
+Die folgenden Abbildungen sind erste Auswertungen aus der Standardisierten Ehemaligenbefragung 2024.
+
+```{r, set up chunk}
+
+library(devtools)
+library(ggiraph)
+library(biplaR)
+
+devtools::load_all("../biplaRseb")
+seb24 <- get_seb(2024, db = F) %>% 
+              filter(type %in% "Gymi")
+
+## Pool Digitaler Wandel
+
+pool24 <- get_seb(2024) %>%
+  filter(type %in% "Gymi") %>% 
+  dplyr::select(
+    type, school, profil, lgkg,
+    activity, age, sex,
+    zufrieden, vorb_fach, vorb_pers, vorb_selbst,
+    ict = stand_ict, starts_with("tis_")) %>%
+  dplyr::mutate(year = 2024)
+
+pool21 <- get_seb(2021) %>%
+  filter(type %in% "Gymi") %>% 
+  dplyr::select(
+    type, school, profil, lgkg,
+    activity, age, sex,
+    zufrieden, vorb_fach, vorb_pers, vorb_selbst,
+    ict = stand_ict, starts_with("tis_")) %>%
+  dplyr::mutate(year = 2021)
+
+p2 <- rbind(pool24, pool21) %>% 
+  rename(digi_effizient = tis_unt_eff,
+         digi_besser_lernen = tis_unt_lern,
+         digi_spannender = tis_unt_span,
+         lehrp_beraten = tis_lehrp_bera,
+         lehrp_passend = tis_lehrp_faecher,
+         lehrp_mitarbeit = tis_lehrp_konz,
+         lehrp_positiv = tis_lehrp_pos,
+         lehrp_umgang = tis_lehrp_umge,
+         digi_erk = tis_verw_erkl,
+         digi_ueb_anw = tis_verw_lern,
+         digi_produkte = tis_verw_prod,
+         digi_gruppen_dis = tis_verw_disk,
+         digi_plan = tis_verw_plan,
+         digi_pruef = tis_verw_kont,
+         schule_gefahren = tis_lern_gefahr,
+         schule_zwecke = tis_lern_zweck,
+         schule_aufträge = tis_lern_schul,
+         schule_tools = tis_lern_tools,
+         schule_selbständig = tis_lern_selbst,
+         vor_andere = tis_vorr_andere,
+         vor_eltern = tis_vorr_eltern,
+         vor_inter = tis_vorr_inter,
+         vor_software = tis_vorr_soft,
+         vor_support = tis_vorr_support,
+         vor_lehrperson = tis_vorr_unterstlp)
+
+## Pool Ausbildungsqualität
+
+p <- get_pool()
+
+d <- bind_rows(select(p, year, profil, zufrieden, vorb_fach, vorb_pers, vorb_selbst) %>% 
+        filter(!is.na(profil) & !str_detect(profil, "Phil|Lehr")) %>% 
+        group_by(year) %>% 
+        summarise_all(mean, na.rm=T) %>%
+        pivot_longer(cols = c(zufrieden, starts_with("vorb")), names_to = "indicator", values_to = "mean") %>% 
+        mutate(profil = "Total"),
+    select(p, year, profil, zufrieden, vorb_fach, vorb_pers, vorb_selbst) %>% 
+    filter(!is.na(profil) & !str_detect(profil, "Phil|Lehr")) %>% 
+    group_by(year, profil) %>% 
+    summarise_all(mean, na.rm=T) %>%
+    pivot_longer(cols = c(zufrieden, starts_with("vorb")), names_to = "indicator", values_to = "mean")) %>%
+    mutate(indicator = case_when(
+        indicator == "zufrieden" ~ "Zufriedenheit mit der Ausbildung",
+        indicator == "vorb_fach" ~ "Fachliche Vorbereitung",
+        indicator == "vorb_pers"  ~ "Persönlichkeitsbildende Vorbereitung",
+        indicator == "vorb_selbst" ~ "Vorbereitung auf selbständiges Arbeiten"),
+        profil = fct_relevel(profil, "Total"),
+        text = paste0(profil, ": ", round(mean, 2)), 
+        profil = factor(profil, levels = c("Altsprachlich", "Mathematisch-Naturwissenschaftlich", "Neusprachlich", "Wirtschaftlich-Rechtlich","Musisch", "Total")),
+        indicator = factor (indicator, levels = c("Zufriedenheit mit der Ausbildung", "Fachliche Vorbereitung", "Persönlichkeitsbildende Vorbereitung", "Vorbereitung auf selbständiges Arbeiten", "Total")))
+
+d <- d %>% 
+  filter(!year %in% 2012) 
+
+## Pool überfachliche Kompetenzen
+
+seb24 <- get_seb(2024, db = FALSE) %>% 
+ mutate(personal = (stpk_eigen + stpk_frag + stpk_idee + stpk_schw + stpk_selbt + stpk_time + stpk_urteil)/7,
+     social = (stsk_achte + stsk_gruppe + stsk_konfl + stsk_kritik + stsk_rueck + stsk_zusamm)/6,
+     meth = (stmk_info + stmk_plan + stmk_prae + stmk_strate + stmk_ueber + stmk_wort + stmk_ziel)/6) %>% 
+ rename(it = stmk_it)
+
+
+seb21 <- get_seb(2021, db = FALSE) %>% 
+ mutate(personal = (stpk_eigen + stpk_frag + stpk_idee + stpk_schw + stpk_selbt + stpk_time + stpk_urteil)/7,
+     social = (stsk_achte + stsk_gruppe + stsk_konfl + stsk_kritik + stsk_rueck + stsk_zusamm)/6,
+     meth = (stmk_info + stmk_plan + stmk_prae + stmk_strate + stmk_ueber + stmk_wort + stmk_ziel)/6) %>% 
+ rename(it = stmk_it)
+
+seb18 <- get_seb(2018)
+
+seb18 <- seb18 %>% 
+ mutate(personal = (stpk_eigen + stpk_frag + stpk_idee + stpk_schw + stpk_selbt + stpk_time + stpk_urteil)/7,
+     social = (stsk_achte + stsk_gruppe + stsk_konfl + stsk_kritik + stsk_rueck + stsk_zusamm)/6,
+     meth = (stmk_info + stmk_plan + stmk_prae + stmk_strate + stmk_ueber + stmk_wort + stmk_ziel)/6) %>% 
+ rename(it = stmk_it)
+
+seb15 <- get_seb(2015) %>% 
+ mutate(personal = (stpk_eigen + stpk_frag + stpk_idee + stpk_schw + stpk_selbt + stpk_time + stpk_urteil)/7,
+     social = (stsk_achte + stsk_gruppe + stsk_konfl + stsk_kritik + stsk_rueck + stsk_zusamm)/6,
+     meth = (stmk_info + stmk_plan + stmk_prae + stmk_strate + stmk_ueber + stmk_wort + stmk_ziel)/6) %>% 
+ rename(it = stmk_it)
+
+pool24 <- seb24 %>%
+    filter(type=="Gymi" & !is.na(profil)) %>% 
+      dplyr::select(
+      type, school, profil, lgkg,
+      activity, age, sex,
+      personal, social, meth, it,
+      ict = stand_ict) %>%
+      dplyr::mutate(year = 2024)
+
+pool21 <- seb21 %>%
+   filter(type=="Gymi" & !is.na(profil)) %>% 
+      dplyr::select(
+      type, school, profil, lgkg,
+      activity, age, sex,
+      personal, social, meth, it,
+      ict = stand_ict) %>%
+    dplyr::mutate(year = 2021)
+  
+pool18 <- seb18 %>%
+    filter(type=="Gymi" & !is.na(profil)) %>% 
+      dplyr::select(
+      type, school, profil, lgkg,
+      activity, age, sex,
+      personal, social, meth, it,
+     ict = stand_ict) %>%
+    dplyr::mutate(year = 2018)
+
+pool15 <- seb15 %>%
+  filter(type=="Gymi" & !is.na(profil)) %>% 
+    dplyr::select(
+    type, school, profil, lgkg,
+    activity, age, sex,
+    personal, social, meth, it, 
+    ict = stand_ict) %>%
+  dplyr::mutate(year = 2015)
+
+sebpool <- rbind(pool24, pool21, pool18, pool15) 
+
+## Pool ICT und Laufbahnberatung
+
+seb18 <- get_seb(2018, db=T)
+seb15 <- get_seb(2015, db=T)
+
+pool24 <- get_seb(2024, db = FALSE) %>% 
+  filter(type=="Gymi" & !is.na(profil)) %>% 
+  dplyr::select(sex, 
+                profil,
+                ict = stand_ict, 
+                laufbahn = laufbahnu,
+                starts_with("stpk"),
+                starts_with("stsk"),
+                starts_with("stmk")) %>%
+  dplyr::mutate(year = 2024)
+
+
+pool21 <- get_seb(2021, db=F) %>%
+  filter(type=="Gymi" & !is.na(profil)) %>% 
+  dplyr::select(sex, 
+                profil,
+                ict = stand_ict, 
+                laufbahn = laufbahnu,
+                starts_with("stpk"),
+                starts_with("stsk"),
+                starts_with("stmk")) %>%
+  dplyr::mutate(year = 2021)
+
+pool18 <- seb18 %>%
+  filter(type=="Gymi" & !is.na(profil)) %>% 
+  dplyr::select(sex, 
+                profil,
+                ict = stand_ict, 
+                laufbahn = laufbahnu,
+                starts_with("stpk"),
+                starts_with("stsk"),
+                starts_with("stmk")) %>%
+  dplyr::mutate(year = 2018)
+
+pool15 <- get_seb(2015, db=F) %>%
+  filter(type=="Gymi" & !is.na(profil)) %>% 
+  dplyr::select(sex,
+    profil,
+    laufbahn = laufbahnu,
+    ict = stand_ict,
+    starts_with("stpk"),
+    starts_with("stsk"),
+    starts_with("stmk")) %>%
+  dplyr::mutate(year = 2015)
+
+## SEB-Pool II
+
+seb18 <- get_seb(2018, db=T)
+seb15 <- get_seb(2015, db=T)
+
+pool24 <- get_seb(2024, db=F) %>%
+  filter(type=="Gymi" & !is.na(profil)) %>% 
+  dplyr::select(sex,
+    profil,
+    laufbahn = laufbahnu,
+    ict = stand_ict,
+    starts_with("stpk"),
+    starts_with("stsk"),
+    starts_with("stmk")) %>%
+  dplyr::mutate(year = 2024)
+
+pool21 <- get_seb(2021, db=F) %>%
+  filter(type=="Gymi" & !is.na(profil)) %>% 
+  dplyr::select(sex, 
+                profil,
+                ict = stand_ict, 
+                laufbahn = laufbahnu,
+                starts_with("stpk"),
+                starts_with("stsk"),
+                starts_with("stmk")) %>%
+  dplyr::mutate(year = 2021)
+
+pool18 <- seb18 %>%
+  filter(type=="Gymi" & !is.na(profil)) %>% 
+  dplyr::select(sex, 
+                profil,
+                ict = stand_ict, 
+                laufbahn = laufbahnu,
+                starts_with("stpk"),
+                starts_with("stsk"),
+                starts_with("stmk")) %>%
+  dplyr::mutate(year = 2018)
+
+pool15 <- get_seb(2015, db=F) %>%
+  filter(type=="Gymi" & !is.na(profil)) %>% 
+  dplyr::select(sex,
+    profil,
+    laufbahn = laufbahnu,
+    ict = stand_ict,
+    starts_with("stpk"),
+    starts_with("stsk"),
+    starts_with("stmk")) %>%
+  dplyr::mutate(year = 2015)
+
+## Poolen
+
+sebpool_II <- rbind(pool24, pool21, pool18, pool15)
+
+```
+
+## 
+
+## Digitaler Wandel an den gymnasialen Mittelschulen 2021 und 2024
+
+### nach Profil
+
+```{r, plot "Digitaler Wandel", Skalen}
+
+library(biplaR)
+
+nutzen <- c("digi_effizient", "digi_besser_lernen", "digi_spannender")
+verwendung <- c("digi_erk", "digi_ueb_anw", "digi_produkte", "digi_gruppen_dis", "digi_plan", "digi_pruef")
+
+p2 <- p2 %>%
+  rowwise() %>%
+  mutate(mean_vor = mean(c_across(starts_with("vor_")), na.rm = TRUE),
+         mean_nutzen = mean(c_across(all_of(nutzen)), na.rm = TRUE),
+         mean_lehrperson = mean(c_across(starts_with("lehrp_")), na.rm = TRUE),
+         mean_verwendung = mean(c_across(all_of(verwendung)), na.rm = TRUE),
+         mean_beitrag = mean(c_across(starts_with("schule_")), na.rm = TRUE)) %>% 
+  ungroup()
+
+sab22_digi <- p2 %>%
+  group_by(year, profil) %>%
+  select(starts_with("mean_")) %>%
+  summarise_all(mean, na.rm=T) 
+
+sab_digi_plot <- sab22_digi %>%
+  pivot_longer(cols= 3:7, names_to = "indicator", values_to = "mean") %>%
+  mutate(indicator = case_when
+         (indicator == "mean_vor" ~ "Voraussetzungen für die Nutzung digitaler Medien", indicator == "mean_nutzen" ~ "Nutzen der digitalen Medien", indicator == "mean_lehrperson" ~ "Umgang der Lehrpersonen mit digitalen Medien", indicator == "mean_verwendung" ~ "Verwendung der digitalen Medien", indicator == "mean_beitrag" ~ "Beitrag der Schule zum Umgang mit digitalen Medien"),
+         text = paste0(round(mean, 1))) %>% 
+  filter(!is.na(profil))
+
+plot <- ggplot(sab_digi_plot, aes(x=year, y=mean, group=indicator, colour=indicator,
+                      tooltip = text, data_id = indicator))+
+    geom_line_interactive(size = 0.6) +
+    geom_point_interactive(size = 1) +
+    facet_wrap(~ profil, nrow=2, labeller = label_wrap_gen(width = 30)) + 
+    scale_colour_zhweb() +
+    scale_y_continuous(limits = c(1,6), breaks = seq(1, 6, 1), labels = function(y) str_wrap(c("1 sehr unzufrieden", "2", "3", "4", "5", "6 sehr zufrieden"), 10)) +
+    theme(panel.grid.major.y = element_line(color = "darkgrey", linewidth =  0.05),      # Optional: keep minor vertical lines
+    panel.grid.major.x = element_blank(),                  # Remove horizontal grid lines
+    panel.grid.minor.x = element_blank(),                  # Remove minor horizontal grid lines
+    panel.background = element_rect(fill = "transparent"), # Transparent plot background
+    plot.background = element_rect(fill = "transparent"),  # Transparent overall background
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.text.x = element_text(size = 8, angle = 90), 
+    axis.text.y = element_text(size = 8),
+    axis.title = element_blank(),
+    legend.text = element_text(size = 9),
+    strip.text.x = element_text(size = 7, angle = 0, margin = margin(0.7, 0, 0.7, 0, "cm")),
+    strip.background = element_rect(fill = "grey90", colour = "white")) +
+guides(color = guide_legend(nrow = 3))
+
+girafe(ggobj = plot)
+
+```
+
+```{r}
+
+nutzen <- c("digi_effizient", "digi_besser_lernen", "digi_spannender")
+verwendung <- c("digi_erk", "digi_ueb_anw", "digi_produkte", "digi_gruppen_dis", "digi_plan", "digi_pruef")
+
+p2 <- p2 %>%
+  rowwise() %>%
+  mutate(mean_vor = mean(c_across(starts_with("vor_")), na.rm = TRUE),
+         mean_nutzen = mean(c_across(all_of(nutzen)), na.rm = TRUE),
+         mean_lehrperson = mean(c_across(starts_with("lehrp_")), na.rm = TRUE),
+         mean_verwendung = mean(c_across(all_of(verwendung)), na.rm = TRUE),
+         mean_beitrag = mean(c_across(starts_with("schule_")), na.rm = TRUE)) %>% 
+  ungroup()
+
+sab22_digi <- p2 %>%
+  group_by(year, profil) %>%
+  select(starts_with("mean_")) %>%
+  summarise_all(mean, na.rm=T) 
+
+sab_digi_plot <- sab22_digi %>%
+  pivot_longer(cols= 3:7, names_to = "indicator", values_to = "mean") %>%
+  mutate(indicator = case_when
+         (indicator == "mean_vor" ~ "Voraussetzungen für die Nutzung digitaler Medien", indicator == "mean_nutzen" ~ "Nutzen der digitalen Medien", indicator == "mean_lehrperson" ~ "Umgang der Lehrpersonen mit digitalen Medien", indicator == "mean_verwendung" ~ "Verwendung der digitalen Medien", indicator == "mean_beitrag" ~ "Beitrag der Schule zum Umgang mit digitalen Medien"),
+         text = paste0(round(mean, 1))) %>% 
+  filter(!is.na(profil))
+
+plot <- ggplot(sab_digi_plot, aes(x=year, y=mean, group=profil, colour=profil,
+                      tooltip = text, data_id = profil))+
+    geom_line_interactive(size = 0.6) +
+    geom_point_interactive(size = 1) +
+    facet_wrap(~ indicator, nrow=2, labeller = label_wrap_gen(width = 30)) + 
+    biplaR::scale_colour_zhweb() +
+    scale_y_continuous(limits = c(2,5), breaks = seq(2, 5)) +
+    scale_x_continuous(breaks = c(2021, 2024)) +
+    theme(panel.grid.major.y = element_line(color = "darkgrey", linewidth =  0.05),      # Optional: keep minor vertical lines
+    panel.grid.major.x = element_blank(),                  # Remove horizontal grid lines
+    panel.grid.minor.x = element_blank(),                  # Remove minor horizontal grid lines
+    panel.background = element_rect(fill = "transparent"), 
+    plot.background = element_rect(fill = "transparent"), 
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.text.x = element_text(size = 8, angle = 90), 
+    axis.text.y = element_text(size = 8),
+    axis.title = element_blank(),
+    legend.text = element_text(size = 9),
+    strip.text.x = element_text(size = 7, angle = 0, margin = margin(0.7, 0, 0.7, 0, "cm")),
+    strip.background = element_rect(fill = "grey90", colour = "white")) +
+guides(color = guide_legend(nrow = 3))
+
+girafe(ggobj = plot)
+```
+
+## Einschätzung der Ausbildungsqualität der gymnasialen Mittelschulen, 2000-2024
+
+### nach Profil
+
+```{r, plot Ausbildungsqualität}
+
+plot <- ggplot(d, aes(x=year, y=mean, group=profil, colour=profil,
+                      tooltip = text, data_id = profil))+
+    geom_point_interactive(size = 0.8) +
+    geom_line_interactive() +
+    facet_wrap(~indicator, shrink = F, nrow=2, labeller = label_wrap_gen(width = 30, multi_line = TRUE)) +
+    biplaR::scale_colour_zhweb() +
+    guides(colour = guide_legend(ncol = 2)) +
+    scale_x_continuous(breaks = seq(2000, 2024, 3), minor_breaks = NULL) +
+    scale_y_continuous(limits = c(1,6), breaks = seq(1, 6, 1))+
+    biplaR::getTheme(c("no_axis_title", "no_legend_title")) +
+    theme(panel.grid.major.y = element_line(color = "darkgrey", linewidth =  0.05),      # Optional: keep minor vertical lines
+    panel.grid.major.x = element_blank(),                  # Remove horizontal grid lines
+    panel.grid.minor.x = element_blank(),                  # Remove minor horizontal grid lines
+    panel.background = element_rect(fill = "transparent"), # Transparent plot background
+    plot.background = element_rect(fill = "transparent"),  # Transparent overall background
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.text.x = element_text(size = 8, angle = 90), 
+    axis.text.y = element_text(size = 8),
+    axis.title = element_blank(),
+    legend.text = element_text(size = 9),
+    strip.text.x = element_text(size = 7, angle = 0, margin = margin(0.7, 0, 0.7, 0, "cm")),
+    strip.background = element_rect(fill = "grey90", colour = "white")) +
+    guides(color = guide_legend(nrow = 3))
+
+
+girafe(ggobj = plot) %>% 
+   girafe_options(opts_hover("opacity:0.7;"),opts_zoom(max = 10),opts_tooltip(use_fill =TRUE))
+
+```
+
+## Zufriedenheit mit der Ausbildung
+
+### nach Profil
+
+```{r, plot Zufriedenheit}
+p <- get_pool()
+
+d <- bind_rows(select(p, year, profil, zufrieden, vorb_fach, vorb_pers, vorb_selbst) %>% 
+        filter(!is.na(profil) & !str_detect(profil, "Phil|Lehr")) %>% 
+        group_by(year) %>% 
+        summarise_all(mean, na.rm=T) %>%
+        pivot_longer(cols = zufrieden, names_to = "indicator", values_to = "mean") %>% 
+        mutate(profil = "Total"),
+    select(p, year, profil, zufrieden, vorb_fach, vorb_pers, vorb_selbst) %>% 
+    filter(!is.na(profil) & !str_detect(profil, "Phil|Lehr")) %>% 
+    group_by(year, profil) %>% 
+    summarise_all(mean, na.rm=T) %>%
+    pivot_longer(cols = zufrieden, names_to = "indicator", values_to = "mean")) %>%
+    mutate(indicator = case_when(indicator == "vorb_fach" ~ "Fachliche Vorbereitung"),
+        profil = fct_relevel(profil, "Total"),
+        text = paste0(profil, ": ", round(mean, 2)), 
+        profil = factor(profil, levels = c("Altsprachlich", "Mathematisch-Naturwissenschaftlich", "Neusprachlich", "Wirtschaftlich-Rechtlich","Musisch", "Total")),
+        indicator = factor (indicator, levels = c("Zufriedenheit mit der Ausbildung", "Fachliche Vorbereitung", "Persönlichkeitsbildende Vorbereitung", "Vorbereitung auf selbständiges Arbeiten", "Total")))
+
+d <- d %>% 
+  filter(!year %in% 2012) 
+
+plot <- ggplot(d, aes(x=year, y=mean, group=profil, colour=profil,
+                      tooltip = text, data_id = profil))+
+    geom_point_interactive(size = 0.8) +
+    geom_line_interactive() +
+    biplaR::scale_colour_zhweb() +
+    guides(colour = guide_legend(ncol = 2)) +
+    scale_x_continuous(breaks = seq(2000, 2024, 3), minor_breaks = NULL) +
+    scale_y_continuous(limits = c(1,6), breaks = seq(1, 6, 1))+
+    biplaR::getTheme(c("no_axis_title", "no_legend_title")) +
+    theme(panel.grid.major.y = element_line(color = "darkgrey", linewidth =  0.05),      # Optional: keep minor vertical lines
+    panel.grid.major.x = element_blank(),                  # Remove horizontal grid lines
+    panel.grid.minor.x = element_blank(),                  # Remove minor horizontal grid lines
+    panel.background = element_rect(fill = "transparent"), # Transparent plot background
+    plot.background = element_rect(fill = "transparent"),  # Transparent overall background
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.text.x = element_text(size = 8, angle = 90), 
+    axis.text.y = element_text(size = 8),
+    axis.title = element_blank(),
+    legend.text = element_text(size = 9),
+    strip.text.x = element_text(size = 7, angle = 0, margin = margin(0.7, 0, 0.7, 0, "cm")),
+    strip.background = element_rect(fill = "grey90", colour = "white")) +
+    guides(color = guide_legend(nrow = 3))
+
+
+girafe(ggobj = plot) %>% 
+   girafe_options(opts_hover("opacity:0.7;"),opts_zoom(max = 10),opts_tooltip(use_fill =TRUE))
+
+```
+
+## Einschätzung der fachlichen Vorbereitung
+
+### nach Profil
+
+```{r, plot fachliche Vorbereitung}
+p <- get_pool()
+
+d <- bind_rows(select(p, year, profil, zufrieden, vorb_fach, vorb_pers, vorb_selbst) %>% 
+        filter(!is.na(profil) & !str_detect(profil, "Phil|Lehr")) %>% 
+        group_by(year) %>% 
+        summarise_all(mean, na.rm=T) %>%
+        pivot_longer(cols = vorb_fach, names_to = "indicator", values_to = "mean") %>% 
+        mutate(profil = "Total"),
+    select(p, year, profil, zufrieden, vorb_fach, vorb_pers, vorb_selbst) %>% 
+    filter(!is.na(profil) & !str_detect(profil, "Phil|Lehr")) %>% 
+    group_by(year, profil) %>% 
+    summarise_all(mean, na.rm=T) %>%
+    pivot_longer(cols = vorb_fach, names_to = "indicator", values_to = "mean")) %>%
+    mutate(indicator = case_when(indicator == "vorb_fach" ~ "Fachliche Vorbereitung"),
+        profil = fct_relevel(profil, "Total"),
+        text = paste0(profil, ": ", round(mean, 2)), 
+        profil = factor(profil, levels = c("Altsprachlich", "Mathematisch-Naturwissenschaftlich", "Neusprachlich", "Wirtschaftlich-Rechtlich","Musisch", "Total")),
+        indicator = factor (indicator, levels = c("Zufriedenheit mit der Ausbildung", "Fachliche Vorbereitung", "Persönlichkeitsbildende Vorbereitung", "Vorbereitung auf selbständiges Arbeiten", "Total")))
+
+d <- d %>% 
+  filter(!year %in% 2012) 
+
+plot <- ggplot(d, aes(x=year, y=mean, group=profil, colour=profil,
+                      tooltip = text, data_id = profil))+
+    geom_point_interactive(size = 0.8) +
+    geom_line_interactive() +
+    biplaR::scale_colour_zhweb() +
+    guides(colour = guide_legend(ncol = 2)) +
+    scale_x_continuous(breaks = seq(2000, 2024, 3), minor_breaks = NULL) +
+    scale_y_continuous(limits = c(1,6), breaks = seq(1, 6, 1))+
+    biplaR::getTheme(c("no_axis_title", "no_legend_title")) +
+    theme(panel.grid.major.y = element_line(color = "darkgrey", linewidth =  0.05),      # Optional: keep minor vertical lines
+    panel.grid.major.x = element_blank(),                  # Remove horizontal grid lines
+    panel.grid.minor.x = element_blank(),                  # Remove minor horizontal grid lines
+    panel.background = element_rect(fill = "transparent"), # Transparent plot background
+    plot.background = element_rect(fill = "transparent"),  # Transparent overall background
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.text.x = element_text(size = 8, angle = 90), 
+    axis.text.y = element_text(size = 8),
+    axis.title = element_blank(),
+    legend.text = element_text(size = 9),
+    strip.text.x = element_text(size = 7, angle = 0, margin = margin(0.7, 0, 0.7, 0, "cm")),
+    strip.background = element_rect(fill = "grey90", colour = "white")) +
+    guides(color = guide_legend(nrow = 3))
+
+
+girafe(ggobj = plot) %>% 
+   girafe_options(opts_hover("opacity:0.7;"),opts_zoom(max = 10),opts_tooltip(use_fill =TRUE))
+```
+
+## Einschätzung der persönlichkeitsbildenden Vorbereitung
+
+### nach Profil
+
+```{r, plot persönlichkeitsbildende Vorbereitung}
+p <- get_pool()
+
+d <- bind_rows(select(p, year, profil, zufrieden, vorb_fach, vorb_pers, vorb_selbst) %>% 
+        filter(!is.na(profil) & !str_detect(profil, "Phil|Lehr")) %>% 
+        group_by(year) %>% 
+        summarise_all(mean, na.rm=T) %>%
+        pivot_longer(cols = vorb_pers, names_to = "indicator", values_to = "mean") %>% 
+        mutate(profil = "Total"),
+    select(p, year, profil, zufrieden, vorb_fach, vorb_pers, vorb_selbst) %>% 
+    filter(!is.na(profil) & !str_detect(profil, "Phil|Lehr")) %>% 
+    group_by(year, profil) %>% 
+    summarise_all(mean, na.rm=T) %>%
+    pivot_longer(cols = vorb_pers, names_to = "indicator", values_to = "mean")) %>%
+    mutate(indicator = case_when(indicator == "vorb_fach" ~ "Fachliche Vorbereitung"),
+        profil = fct_relevel(profil, "Total"),
+        text = paste0(profil, ": ", round(mean, 2)), 
+        profil = factor(profil, levels = c("Altsprachlich", "Mathematisch-Naturwissenschaftlich", "Neusprachlich", "Wirtschaftlich-Rechtlich","Musisch", "Total")))
+
+d <- d %>% 
+  filter(!year %in% 2012) 
+
+plot <- ggplot(d, aes(x=year, y=mean, group=profil, colour=profil,
+                      tooltip = text, data_id = profil))+
+    geom_point_interactive(size = 0.8) +
+    geom_line_interactive() +
+    biplaR::scale_colour_zhweb() +
+    guides(colour = guide_legend(ncol = 2)) +
+    scale_x_continuous(breaks = seq(2000, 2024, 3), minor_breaks = NULL) +
+    scale_y_continuous(limits = c(1,6), breaks = seq(1, 6, 1))+
+    biplaR::getTheme(c("no_axis_title", "no_legend_title")) +
+    theme(panel.grid.major.y = element_line(color = "darkgrey", linewidth =  0.05),      # Optional: keep minor vertical lines
+    panel.grid.major.x = element_blank(),                  # Remove horizontal grid lines
+    panel.grid.minor.x = element_blank(),                  # Remove minor horizontal grid lines
+    panel.background = element_rect(fill = "transparent"), # Transparent plot background
+    plot.background = element_rect(fill = "transparent"),  # Transparent overall background
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.text.x = element_text(size = 8, angle = 90), 
+    axis.text.y = element_text(size = 8),
+    axis.title = element_blank(),
+    legend.text = element_text(size = 9),
+    strip.text.x = element_text(size = 7, angle = 0, margin = margin(0.7, 0, 0.7, 0, "cm")),
+    strip.background = element_rect(fill = "grey90", colour = "white")) +
+    guides(color = guide_legend(nrow = 3))
+
+
+girafe(ggobj = plot) %>% 
+   girafe_options(opts_hover("opacity:0.7;"),opts_zoom(max = 10),opts_tooltip(use_fill =TRUE))
+```
+
+## Einschätzung der Vorbereitung auf selbständiges Arbeiten
+
+### nach Profil
+
+```{r, plot Vorbereitung auf selbständiges Arbeiten}
+p <- get_pool()
+
+d <- bind_rows(select(p, year, profil, zufrieden, vorb_fach, vorb_pers, vorb_selbst) %>% 
+        filter(!is.na(profil) & !str_detect(profil, "Phil|Lehr")) %>% 
+        group_by(year) %>% 
+        summarise_all(mean, na.rm=T) %>%
+        pivot_longer(cols = vorb_selbst, names_to = "indicator", values_to = "mean") %>% 
+        mutate(profil = "Total"),
+    select(p, year, profil, zufrieden, vorb_fach, vorb_pers, vorb_selbst) %>% 
+    filter(!is.na(profil) & !str_detect(profil, "Phil|Lehr")) %>% 
+    group_by(year, profil) %>% 
+    summarise_all(mean, na.rm=T) %>%
+    pivot_longer(cols = vorb_selbst, names_to = "indicator", values_to = "mean")) %>%
+    mutate(indicator = case_when(indicator == "vorb_fach" ~ "Fachliche Vorbereitung"),
+        profil = fct_relevel(profil, "Total"),
+        text = paste0(profil, ": ", round(mean, 2)), 
+        profil = factor(profil, levels = c("Altsprachlich", "Mathematisch-Naturwissenschaftlich", "Neusprachlich", "Wirtschaftlich-Rechtlich","Musisch", "Total")),
+        indicator = factor (indicator, levels = c("Zufriedenheit mit der Ausbildung", "Fachliche Vorbereitung", "Persönlichkeitsbildende Vorbereitung", "Vorbereitung auf selbständiges Arbeiten", "Total")))
+
+d <- d %>% 
+  filter(year %in% c(2015, 2018, 2021, 2024))
+
+plot <- ggplot(d, aes(x=year, y=mean, group=profil, colour=profil,
+                      tooltip = text, data_id = profil))+
+    geom_point_interactive(size = 0.8) +
+    geom_line_interactive() +
+    biplaR::scale_colour_zhweb() +
+    guides(colour = guide_legend(ncol = 2)) +
+    scale_x_continuous(breaks = seq(2015, 2024, 3), minor_breaks = NULL) +
+    scale_y_continuous(limits = c(1,6), breaks = seq(1, 6, 1))+
+    biplaR::getTheme(c("no_axis_title", "no_legend_title")) +
+    theme(panel.grid.major.y = element_line(color = "darkgrey", linewidth =  0.05),      # Optional: keep minor vertical lines
+    panel.grid.major.x = element_blank(),                  # Remove horizontal grid lines
+    panel.grid.minor.x = element_blank(),                  # Remove minor horizontal grid lines
+    panel.background = element_rect(fill = "transparent"), # Transparent plot background
+    plot.background = element_rect(fill = "transparent"),  # Transparent overall background
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.text.x = element_text(size = 8, angle = 90), 
+    axis.text.y = element_text(size = 8),
+    axis.title = element_blank(),
+    legend.text = element_text(size = 9),
+    strip.text.x = element_text(size = 7, angle = 0, margin = margin(0.7, 0, 0.7, 0, "cm")),
+    strip.background = element_rect(fill = "grey90", colour = "white")) +
+    guides(color = guide_legend(nrow = 3))
+
+
+girafe(ggobj = plot) %>% 
+   girafe_options(opts_hover("opacity:0.7;"),opts_zoom(max = 10),opts_tooltip(use_fill =TRUE))
+```
+
+## Abbildung: Einschätzung der überfachlichen Kompetenzen, 2015-2024
+
+### nach Profil
+
+```{r, plot, überfachliche Kompetenzen}
+
+d1 <- select(sebpool, year, profil, personal, social, meth, it) %>% 
+        filter(!is.na(profil)) %>% 
+        group_by(year) %>% 
+        summarise_all(mean, na.rm=T) %>%
+        pivot_longer(cols = c(personal, social, meth, it), names_to = "indicator", values_to = "mean") %>%  
+    mutate(profil = "Total")%>%
+    mutate(indicator = case_when(
+        indicator == "personal" ~ "Personale Kompetenzen",
+        indicator == "social" ~ "Soziale Kompetenzen",
+        indicator == "meth"  ~ "Methodische Kompetenzen",
+        indicator == "it" ~ "IT Kompetenzen"),
+        profil = fct_relevel(profil, "Total"),
+        text = paste0(profil, ": ", round(mean, 2)))
+
+d2 <- select(sebpool, year, profil, personal, social, meth, it) %>% 
+    filter(!is.na(profil)) %>% 
+    group_by(year, profil) %>% 
+    summarise_all(mean, na.rm=T) %>%
+    pivot_longer(cols = c(personal, social, meth, it), names_to = "indicator", values_to = "mean") %>%
+    mutate(indicator = case_when(
+        indicator == "personal" ~ "Personale Kompetenzen",
+        indicator == "social" ~ "Soziale Kompetenzen",
+        indicator == "meth"  ~ "Methodische Kompetenzen",
+        indicator == "it" ~ "IT Kompetenzen"),
+        profil = fct_relevel(profil, "Total"),
+        text = paste0(profil, ": ", round(mean, 2)),
+        profil = factor(profil, levels = c("Altsprachlich", "Mathematisch-Naturwissenschaftlich", "Neusprachlich", "Wirtschaftlich-Rechtlich","Musisch", "Total")))
+
+d <- bind_rows(d1, d2)
+
+d <- d %>% 
+     mutate(profil = factor(profil, levels = c("Altsprachlich", "Mathematisch-Naturwissenschaftlich", "Neusprachlich", "Wirtschaftlich-Rechtlich","Musisch", "Total")),
+    indicator = factor(indicator, levels=c("Personale Kompetenzen", "Soziale Kompetenzen", "Methodische Kompetenzen", "IT Kompetenzen")), ordered = T)
+
+library(ggiraph)
+library(biplaR)
+
+plot2 <- ggplot(d, aes(x=year, y=mean, group=profil, colour=profil,
+                      tooltip = text, data_id = profil))+
+    geom_line_interactive(size = 0.4) +
+    geom_point_interactive(size = 1) +
+    facet_wrap(~indicator, nrow=2,
+                          labeller = label_wrap_gen(width = 40)) + 
+    biplaR::scale_colour_zhweb() +
+    scale_x_continuous(breaks = seq(2000, 2024, 3), minor_breaks = NULL) +
+    scale_y_continuous(limits = c(1,6), breaks = seq(1, 6, 1), labels = function(y) str_wrap(c("1 sehr tief", "2", "3", "4", "5", "6 sehr hoch"), 10)) +
+    theme_minimal()+
+    theme(axis.text.x = element_text(angle = 90), 
+          text = element_text(size = 10),  
+          strip.text.x = element_text(size = 11, angle = 0, margin = margin(0.7,0,0.7,0, "cm")),
+          strip.background = element_rect(fill = "grey90", 
+                    colour = "white"),
+          axis.title = element_blank(), legend.position = "bottom", legend.title = element_blank())+
+    guides(color = guide_legend(ncol = 2))
+ 
+girafe(ggobj = plot2, height_svg = 6.5) %>% 
+   girafe_options(opts_hover("opacity:0.7;"),opts_zoom(max = 10), opts_tooltip(use_fill =TRUE))
+
+
+```
+
+## Studien-, Berufs- und Laufbahnberatung 2021 und 2024
+
+### nach Profil
+
+```{r}
+
+d1 <- select(sebpool_II, year, profil, laufbahn) %>% 
+        filter(!is.na(profil)) %>% 
+        group_by(year) %>% 
+        summarise_all(mean, na.rm=T) %>%
+        pivot_longer(cols = c(laufbahn), names_to = "indicator", values_to = "mean") %>%  
+        mutate(profil = "Total")%>%
+        mutate(indicator = case_when(
+        indicator == "laufbahn" ~ "Studien-, Berufswahl- und Laufbahnberatung"),
+        profil = fct_relevel(profil, "Total"),
+        text = paste0(profil, ": ", round(mean, 2)))
+
+d2 <- select(sebpool_II, year, profil,laufbahn) %>% 
+    filter(!is.na(profil)) %>% 
+    group_by(year, profil) %>% 
+    summarise_all(mean, na.rm=T) %>%
+    pivot_longer(cols = c(laufbahn), names_to = "indicator", values_to = "mean") %>%
+    mutate(indicator = case_when(
+        indicator == "laufbahn" ~ "Studien-, Berufswahl- und Laufbahnberatung"),
+        profil = fct_relevel(profil, "Total"),
+        text = paste0(profil, ": ", round(mean, 2)))
+
+d <- bind_rows(d1, d2)
+
+d <- d %>% 
+      mutate(profil = factor(profil, levels = c("Altsprachlich", "Mathematisch-Naturwissenschaftlich", "Neusprachlich", "Wirtschaftlich-Rechtlich", "Musisch", "Total"))) %>% 
+      filter(!is.na(profil))
+
+plot1 <- ggplot(d, aes(x=year, y=mean, group=profil, colour=profil,
+                      tooltip = text, data_id = profil))+
+    geom_line_interactive(size = 0.6) +
+    geom_point_interactive(size = 1) +   
+    scale_x_continuous(breaks = seq(2000, 2024), minor_breaks = NULL) +
+    scale_y_continuous(limits = c(1,6), breaks = seq(1, 6, 1), labels = function(y) str_wrap(c("1 trifft überhaupt nicht zu", "2", "3", "4", "5", "6 trifft voll und ganz zu"), 10))+
+    # biplaR::getTheme(c("no_axis_title", "no_legend_title")) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(size = 8, angle = 90), 
+          text = element_text(size = 10), 
+          strip.text.x = element_text(size = 15, angle = 0, margin = margin(0.7,0,0.7,0, "cm")),
+          axis.title = element_blank(), legend.title = element_blank(), legend.position = "bottom") +
+guides(color = guide_legend(ncol = 2))
+       
+girafe(ggobj = plot1, height_svg = 5) %>% 
+   girafe_options(opts_hover("opacity:0.7;"),opts_zoom(max = 10), opts_tooltip(use_fill =TRUE))
+```
+
+## Unterstützung bei der Studien-, Berufs- und Laufbahnberatung 2021 und 2024
+
+### nach Profil
+
+```{r}
+
+pool24 <- get_seb(2024) %>%
+  filter(type %in% "Gymi") %>% 
+  dplyr::select(
+    type, school, profil, lgkg,
+    activity, age, sex,
+    zufrieden, vorb_fach, vorb_pers, vorb_selbst,
+    ict = stand_ict, starts_with("blsb_")) %>%
+  dplyr::mutate(year = 2024)
+
+pool21 <- get_seb(2021) %>%
+  dplyr::select(
+    type, school, profil, lgkg,
+    activity, age, sex,
+    zufrieden, vorb_fach, vorb_pers, vorb_selbst,
+    ict = stand_ict, starts_with("blsb_")) %>%
+  dplyr::mutate(year = 2021)
+
+p2 <- rbind(pool24, pool21) %>% 
+       rename("Besuchstage" = blsb_bes, 
+          "Unterstützungsangebote" = blsb_ext,
+          "Gespräche" = blsb_gespr,
+          "Studien_Laufbahnberatung" = blsb_hilf,
+          "Informationsmittel" = blsb_mittel,
+          "Studien_Berufsmöglichkeiten" = blsb_moegl,
+          "Plan" = blsb_plan,
+          "Schnuppern" = blsb_schnu,
+          "Thema" = blsb_thema,
+          "Auseinandersetzung" = blsb_serious,
+          "Unterstützung" = blsb_unt,
+          "Vorbereitung" = blsb_vorb,
+          "Zeit" = blsb_zeit,
+          "Wissen" = blsb_wahl)
+
+sab22_digi <- p2 %>%
+  group_by(year, profil) %>%
+  select(starts_with("mean_")) %>%
+  summarise_all(mean, na.rm=T) 
+          
+table_studienwahl<- p2 %>%
+  filter(!is.na(profil)) %>%
+  select(profil, year, Besuchstage, Unterstützungsangebote, Gespräche, Studien_Laufbahnberatung, Informationsmittel, Studien_Berufsmöglichkeiten,
+  Schnuppern, Thema, Auseinandersetzung, Unterstützung, Wissen) %>% 
+  group_by(profil, year) %>% 
+  summarise_all(mean, na.rm = TRUE) %>% 
+  pivot_longer(cols= 3:13, names_to = "indicator", values_to = "mean") %>% 
+  filter(!is.na(mean)) %>% 
+  mutate(indicator = case_when
+         (indicator == "Besuchstage" ~ "Hochschulbesuchstage",
+           indicator == "Unterstützungsangebote" ~ "Kenntnis schulexterner Unterstützungsangebote",
+           indicator == "Gespräche" ~ "Persönliche Gespräche mit Studierenden und Berufsleuten",
+           indicator == "Studien_Laufbahnberatung" ~ "Schulische Arbeitsmittel",
+           indicator == "Informationsmittel" ~ "Kompetente Nutzung relevanter Informationsmittel",
+           indicator == "Studien_Berufsmöglichkeiten"~ "Bekanntheit der relevanten Studien- und Berufsmöglichkeiten",
+           indicator == "Schnuppern" ~ "Schnuppern in Vorlesungen und Berufen",
+           indicator == "Unterstützung"  ~ "Unterstützung durch die Schule"),
+           text = paste0(profil, ": ", round(mean, 2))) %>% 
+  filter(!is.na(indicator))
+
+table_studienwahl <- table_studienwahl %>% 
+  mutate(profil = factor(profil, levels = c("Altsprachlich", "Mathematisch-Naturwissenschaftlich", "Neusprachlich", "Wirtschaftlich-Rechtlich","Musisch")))
+
+plot <- ggplot(table_studienwahl, aes(x=year, y=mean, group=profil, colour=profil,
+                      tooltip = text, data_id = profil))+
+    geom_line_interactive(size = 0.6) +
+    geom_point_interactive(size = 1) +
+    facet_wrap(~ indicator, nrow=2, labeller = label_wrap_gen(width = 30)) + 
+    biplaR::scale_colour_zhweb() +
+    scale_y_continuous(limits = c(2,5), breaks = seq(2, 5)) +
+    scale_x_continuous(breaks = c(2021, 2024)) +
+    theme(panel.grid.major.y = element_line(color = "darkgrey", linewidth =  0.05),      # Optional: keep minor vertical lines
+    panel.grid.major.x = element_blank(),                  # Remove horizontal grid lines
+    panel.grid.minor.x = element_blank(),                  # Remove minor horizontal grid lines
+    panel.background = element_rect(fill = "transparent"), 
+    plot.background = element_rect(fill = "transparent"), 
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.text.x = element_text(size = 8, angle = 90), 
+    axis.text.y = element_text(size = 8),
+    axis.title = element_blank(),
+    legend.text = element_text(size = 6),
+    strip.text.x = element_text(size = 7, angle = 0),
+    strip.background = element_rect(fill = "grey90", colour = "white")) +
+guides(color = guide_legend(nrow = 3))
+
+girafe(ggobj = plot)
+
+```
+
+```{r}
+pool24 <- get_seb(2024) %>%
+  filter(type %in% "Gymi") %>% 
+  dplyr::select(
+    type, school, profil, lgkg,
+    activity, age, sex,
+    zufrieden, vorb_fach, vorb_pers, vorb_selbst,
+    ict = stand_ict, starts_with("blsb_")) %>%
+  dplyr::mutate(year = 2024)
+
+pool21 <- get_seb(2021) %>%
+  dplyr::select(
+    type, school, profil, lgkg,
+    activity, age, sex,
+    zufrieden, vorb_fach, vorb_pers, vorb_selbst,
+    ict = stand_ict, starts_with("blsb_")) %>%
+  dplyr::mutate(year = 2021)
+
+p2 <- rbind(pool24, pool21) %>% 
+       rename("Besuchstage" = blsb_bes, 
+          "Unterstützungsangebote" = blsb_ext,
+          "Gespräche" = blsb_gespr,
+          "Studien_Laufbahnberatung" = blsb_hilf,
+          "Informationsmittel" = blsb_mittel,
+          "Studien_Berufsmöglichkeiten" = blsb_moegl,
+          "Plan" = blsb_plan,
+          "Schnuppern" = blsb_schnu,
+          "Thema" = blsb_thema,
+          "Auseinandersetzung" = blsb_serious,
+          "Unterstützung" = blsb_unt,
+          "Vorbereitung" = blsb_vorb,
+          "Zeit" = blsb_zeit,
+          "Wissen" = blsb_wahl)
+
+sab22_digi <- p2 %>%
+  group_by(year, profil) %>%
+  select(starts_with("mean_")) %>%
+  summarise_all(mean, na.rm=T) 
+          
+table_studienwahl<- p2 %>%
+  filter(!is.na(profil)) %>%
+  select(profil, year, Besuchstage, Unterstützungsangebote, Gespräche, Studien_Laufbahnberatung, Informationsmittel, Studien_Berufsmöglichkeiten,
+  Schnuppern, Thema, Auseinandersetzung, Unterstützung, Wissen) %>% 
+  group_by(profil, year) %>% 
+  summarise_all(mean, na.rm = TRUE) %>% 
+  pivot_longer(cols= 3:13, names_to = "indicator", values_to = "mean") %>% 
+  filter(!is.na(mean)) %>% 
+  mutate(indicator = case_when
+         (indicator == "Besuchstage" ~ "Hochschulbesuchstage",
+           indicator == "Unterstützungsangebote" ~ "Kenntnis schulexterner Unterstützungsangebote",
+           indicator == "Gespräche" ~ "Persönliche Gespräche mit Studierenden und Berufsleuten",
+           indicator == "Studien_Laufbahnberatung" ~ "Schulische Arbeitsmittel",
+           indicator == "Informationsmittel" ~ "Kompetente Nutzung relevanter Informationsmittel",
+           indicator == "Studien_Berufsmöglichkeiten"~ "Bekanntheit der relevanten Studien- und Berufsmöglichkeiten",
+           indicator == "Schnuppern" ~ "Schnuppern in Vorlesungen und Berufen",
+           indicator == "Unterstützung"  ~ "Unterstützung durch die Schule"),
+           text = paste0(indicator, ": ", round(mean, 2))) %>% 
+  filter(!is.na(indicator))
+
+table_studienwahl <- table_studienwahl %>% 
+  mutate(profil = factor(profil, levels = c("Altsprachlich", "Mathematisch-Naturwissenschaftlich", "Neusprachlich", "Wirtschaftlich-Rechtlich","Musisch")))
+
+plot <- ggplot(table_studienwahl, aes(x=year, y=mean, group=indicator, colour=indicator,
+                      tooltip = text, data_id = indicator))+
+    geom_line_interactive(size = 0.6) +
+    geom_point_interactive(size = 1) +
+    facet_wrap(~ profil, nrow=2, labeller = label_wrap_gen(width = 30)) + 
+    biplaR::scale_colour_zhweb() +
+    scale_y_continuous(limits = c(2,5), breaks = seq(2, 5)) +
+    scale_x_continuous(breaks = c(2021, 2024)) +
+    theme(panel.grid.major.y = element_line(color = "darkgrey", linewidth =  0.05),      # Optional: keep minor vertical lines
+    panel.grid.major.x = element_blank(),                  # Remove horizontal grid lines
+    panel.grid.minor.x = element_blank(),                  # Remove minor horizontal grid lines
+    panel.background = element_rect(fill = "transparent"), 
+    plot.background = element_rect(fill = "transparent"), 
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.text.x = element_text(size = 8, angle = 90), 
+    axis.text.y = element_text(size = 8),
+    axis.title = element_blank(),
+    legend.text = element_text(size = 6),
+    strip.text.x = element_text(size = 7, angle = 0),
+    strip.background = element_rect(fill = "grey90", colour = "white")) +
+guides(color = guide_legend(nrow = 3))
+
+girafe(ggobj = plot)
+```
+
+## Beitrag der Mittelschulen zum selbständigen Lernen 2021 und 2024
+
+### nach Profil
+
+```{r}
+
+pool24 <- get_seb(2024) %>%
+  filter(type %in% "Gymi") %>% 
+  dplyr::select(
+    type, school, profil, lgkg,
+    activity, age, sex,
+    zufrieden, vorb_fach, vorb_pers, vorb_selbst,
+    ict = stand_ict, starts_with("zlern_")) %>%
+  dplyr::mutate(year = 2024)
+
+pool21 <- get_seb(2021) %>%
+  filter(type %in% "Gymi") %>% 
+  dplyr::select(
+    type, school, profil, lgkg,
+    activity, age, sex,
+    zufrieden, vorb_fach, vorb_pers, vorb_selbst,
+    ict = stand_ict, starts_with("zlern_")) %>%
+  dplyr::mutate(year = 2021)
+
+pool <- rbind(pool24, pool21)
+
+lern_1_p_all <- pool %>% 
+  group_by(profil, year)%>% 
+  select(zlern_ideen, zlern_org, zlern_selbst, zlern_tun) %>% 
+  summarise_all(mean, na.rm=T) %>% 
+  group_by(profil, year) %>% 
+  pivot_longer(cols=3:6, names_to = "indicator", values_to = "mean") %>% 
+    mutate(indicator = case_when
+           (indicator == "zlern_ideen" ~ "Eigene Ideen verwirklichen können",
+             indicator == "zlern_org" ~ "Mitbestimmen über die Organisation des Lerngeschehens",
+             indicator == "zlern_selbst" ~ "Sich zuständig fühlen für das eigene Lernen",
+             indicator == "zlern_tun" ~ "Tun können, was man selber tun will"),
+             text = paste0(indicator, ": ", round(mean, 2)),
+           profil = factor(profil, levels = c("Altsprachlich", "Mathematisch-Naturwissenschaftlich", "Neusprachlich", "Wirtschaftlich-Rechtlich","Musisch"))) %>% 
+ filter(!is.na(profil))   
+    
+plot <- ggplot(lern_1_p_all, aes(x=year, y=mean, group=indicator, colour=indicator,
+                      tooltip = text, data_id = indicator))+
+    geom_line_interactive(size = 0.6) +
+    geom_point_interactive(size = 1) +
+    facet_wrap(~ profil, nrow=2, labeller = label_wrap_gen(width = 30)) + 
+    biplaR::scale_colour_zhweb() +
+    scale_y_continuous(limits = c(1,6), breaks = seq(1, 6)) +
+    scale_x_continuous(breaks = c(2021, 2024)) +
+    theme(panel.grid.major.y = element_line(color = "darkgrey", linewidth =  0.05),      # Optional: keep minor vertical lines
+    panel.grid.major.x = element_blank(),                  # Remove horizontal grid lines
+    panel.grid.minor.x = element_blank(),                  # Remove minor horizontal grid lines
+    panel.background = element_rect(fill = "transparent"), 
+    plot.background = element_rect(fill = "transparent"), 
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.text.x = element_text(size = 8, angle = 90), 
+    axis.text.y = element_text(size = 8),
+    axis.title = element_blank(),
+    legend.text = element_text(size = 6),
+    strip.text.x = element_text(size = 7, angle = 0),
+    strip.background = element_rect(fill = "grey90", colour = "white")) +
+guides(color = guide_legend(nrow = 3))
+
+girafe(ggobj = plot)
+
+```
+
+## Fähigkeit, selbständig zu lernen 2021 und 2024
+
+### nach Profil
+
+```{r}
+pool24 <- get_seb(2024) %>%
+  filter(type %in% "Gymi") %>% 
+  dplyr::select(
+    type, school, profil, lgkg,
+    activity, age, sex,
+    zufrieden, vorb_fach, vorb_pers, vorb_selbst,
+    ict = stand_ict, starts_with("flern_")) %>%
+  dplyr::mutate(year = 2024)
+
+pool21 <- get_seb(2021) %>%
+  filter(type %in% "Gymi") %>% 
+  dplyr::select(
+    type, school, profil, lgkg,
+    activity, age, sex,
+    zufrieden, vorb_fach, vorb_pers, vorb_selbst,
+    ict = stand_ict, starts_with("flern_")) %>%
+  dplyr::mutate(year = 2021)
+
+pool <- rbind(pool24, pool21)
+
+lern_selb_p_all <- pool %>% 
+    group_by(profil, year) %>% 
+    select(flern_art, flern_atm, flern_kont, flern_mat, flern_meth, flern_pruef, flern_refle, flern_temp, flern_was, flern_zusa) %>% 
+    summarise_all(mean, na.rm=T) %>% 
+   group_by(year, profil) %>% 
+   pivot_longer(cols= 3:12, names_to = "indicator", values_to = "mean") %>% 
+    mutate(indicator = case_when
+           (indicator == "flern_art" ~ "Selbständige Wahl der Art zu lernen",
+             indicator == "flern_atm" ~ "Schaffen einer angenehmen und förderlichen Lernatmosphäre",
+             indicator == "flern_kont" ~ "Selbstkontrolle des Lernens",
+             indicator == "flern_mat" ~ "Selbständige Wahl der Lernmaterialien",
+             indicator == "flern_meth" ~ "Selbständige Wahl der Lernmethoden und -zugänge",
+             indicator == "flern_pruef" ~ "Eigenständige Überprüfung des Lernerfolgs",
+             indicator == "flern_refle" ~ "Reflexion des Vorgehens beim Lernen",
+             indicator == "flern_temp" ~ "Selbstbestimmen des Lerntempos",
+             indicator == "flern_zusa" ~ "Selbstbestimmen des Arbeitspartners",  
+             indicator == "flern_was" ~ "Selbständige Wahl der Lerninhalte" ),
+             text = paste0(profil, ": ", round(mean, 2)),
+           profil = factor(profil, levels = c("Altsprachlich", "Mathematisch-Naturwissenschaftlich", "Neusprachlich", "Wirtschaftlich-Rechtlich","Musisch"))) %>% 
+ filter(!is.na(profil))   
+           
+plot <- ggplot(lern_selb_p_all, aes(x=year, y=mean, group=indicator, colour=indicator,
+                      tooltip = text, data_id = indicator))+
+    geom_line_interactive(size = 0.6) +
+    geom_point_interactive(size = 1) +
+    facet_wrap(~ profil, nrow=2, labeller = label_wrap_gen(width = 30)) + 
+    biplaR::scale_colour_zhweb() +
+    scale_y_continuous(limits = c(1,6), breaks = seq(1, 6)) +
+    scale_x_continuous(breaks = c(2021, 2024)) +
+    theme(panel.grid.major.y = element_line(color = "darkgrey", linewidth =  0.05),      # Optional: keep minor vertical lines
+    panel.grid.major.x = element_blank(),                  # Remove horizontal grid lines
+    panel.grid.minor.x = element_blank(),                  # Remove minor horizontal grid lines
+    panel.background = element_rect(fill = "transparent"), 
+    plot.background = element_rect(fill = "transparent"), 
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.text.x = element_text(size = 8, angle = 90), 
+    axis.text.y = element_text(size = 8),
+    axis.title = element_blank(),
+    legend.text = element_text(size = 6),
+    strip.text.x = element_text(size = 7, angle = 0),
+    strip.background = element_rect(fill = "grey90", colour = "white")) +
+guides(color = guide_legend(nrow = 3))
+
+girafe(ggobj = plot)
+
+```
+
+## Beitrag der gymnasialen Mittelschule zur politischen Bildung, 2018, 2021 und 2024
+
+nach Profil
+
+```{r, plot, politische Bildung}
+
+pool24 <- get_seb(2024) %>%
+  filter(type %in% "Gymi") %>% 
+  dplyr::select(
+    type, school, profil, lgkg,
+    activity, age, sex,
+    zufrieden, vorb_fach, vorb_pers, vorb_selbst,
+    ict = stand_ict, starts_with("polit_")) %>%
+  dplyr::mutate(year = 2024)
+
+pool21 <- get_seb(2021) %>%
+  filter(type %in% "Gymi") %>% 
+  dplyr::select(
+    type, school, profil, lgkg,
+    activity, age, sex,
+    zufrieden, vorb_fach, vorb_pers, vorb_selbst,
+    ict = stand_ict, starts_with("polit_")) %>%
+  dplyr::mutate(year = 2021)
+
+pool18 <- get_seb(2018) %>%
+  filter(type %in% "Gymi") %>% 
+  dplyr::select(
+    type, school, profil, lgkg,
+    activity, age, sex,
+    zufrieden, vorb_fach, vorb_pers, vorb_selbst,
+    ict = stand_ict, starts_with("polit_")) %>%
+  dplyr::mutate(year = 2018)
+
+pool15 <- get_seb(2015) %>%
+  filter(type %in% "Gymi") %>% 
+  dplyr::select(
+    type, school, profil, lgkg,
+    activity, age, sex,
+    zufrieden, vorb_fach, vorb_pers, vorb_selbst,
+    ict = stand_ict, starts_with("polit_")) %>%
+  dplyr::mutate(year = 2015)
+
+pool <- rbind(pool24, pool21, pool18, pool15)
+
+polit <- pool %>% 
+    group_by(profil, year) %>% 
+    select(polit_grund, polit_inter) %>% 
+    summarise_all(mean, na.rm=T) %>% 
+   group_by(year, profil) %>% 
+   pivot_longer(cols= 3:4, names_to = "indicator", values_to = "mean") %>% 
+    mutate(indicator = case_when
+           (indicator == "polit_grund" ~ "Beitrag zu guten Grundlagen für das Verständnsi politischer Zusammenhänge",
+             indicator == "polit_inter" ~ "Förderung meines Interesses an politischen Zusammenhänegn"),
+             text = paste0(indicator, ": ", round(mean, 2)),
+           profil = factor(profil, levels = c("Altsprachlich", "Mathematisch-Naturwissenschaftlich", "Neusprachlich", "Wirtschaftlich-Rechtlich","Musisch"))) %>% 
+ filter(!is.na(profil))   
+           
+plot <- ggplot(polit, aes(x=year, y=mean, group=indicator, colour=indicator,
+                      tooltip = text, data_id = indicator))+
+    geom_line_interactive(size = 0.6) +
+    geom_point_interactive(size = 1) +
+    facet_wrap(~ profil, nrow=2, labeller = label_wrap_gen(width = 30)) + 
+    biplaR::scale_colour_zhweb() +
+    scale_y_continuous(limits = c(1,6), breaks = seq(1, 6)) +
+    scale_x_continuous(breaks = c(2021, 2024)) +
+    theme(panel.grid.major.y = element_line(color = "darkgrey", linewidth =  0.05),      # Optional: keep minor vertical lines
+    panel.grid.major.x = element_blank(),                  # Remove horizontal grid lines
+    panel.grid.minor.x = element_blank(),                  # Remove minor horizontal grid lines
+    panel.background = element_rect(fill = "transparent"), 
+    plot.background = element_rect(fill = "transparent"), 
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.text.x = element_text(size = 8, angle = 90), 
+    axis.text.y = element_text(size = 8),
+    axis.title = element_blank(),
+    legend.text = element_text(size = 6),
+    strip.text.x = element_text(size = 7, angle = 0),
+    strip.background = element_rect(fill = "grey90", colour = "white")) +
+guides(color = guide_legend(nrow = 3))
+
+girafe(ggobj = plot)
+```
+
+```{r}
+
+polit <- pool %>% 
+    group_by(profil, year) %>% 
+    select(polit_grund, polit_inter) %>% 
+    summarise_all(mean, na.rm=T) %>% 
+   group_by(year, profil) %>% 
+   pivot_longer(cols= 3:4, names_to = "indicator", values_to = "mean") %>% 
+    mutate(indicator = case_when
+           (indicator == "polit_grund" ~ "Beitrag zu guten Grundlagen für das Verständnis politischer Zusammenhänge",
+             indicator == "polit_inter" ~ "Förderung meines Interesses an politischen Zusammenhänegn"),
+             text = paste0(profil, ": ", round(mean, 2)),
+           profil = factor(profil, levels = c("Altsprachlich", "Mathematisch-Naturwissenschaftlich", "Neusprachlich", "Wirtschaftlich-Rechtlich","Musisch"))) %>%  filter(!is.na(profil))   
+
+plot <- ggplot(polit, aes(x=year, y=mean, group=profil, colour=profil,
+                      tooltip = text, data_id = profil))+
+    geom_line_interactive(size = 0.6) +
+    geom_point_interactive(size = 1) +
+    facet_wrap(~ indicator, nrow=1, labeller = label_wrap_gen(width = 50)) + 
+    biplaR::scale_colour_zhweb() +
+    scale_y_continuous(limits = c(1,6), breaks = seq(1, 6)) +
+    scale_x_continuous(breaks = c(2018, 2021, 2024)) +
+    theme(panel.grid.major.y = element_line(color = "darkgrey", linewidth =  0.05),
+    panel.grid.major.x = element_blank(),                
+    panel.grid.minor.x = element_blank(),               
+    panel.background = element_rect(fill = "transparent"), 
+    plot.background = element_rect(fill = "transparent"), 
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.text.x = element_text(size = 8, angle = 90), 
+    axis.text.y = element_text(size = 8),
+    axis.title = element_blank(),
+    legend.text = element_text(size = 6),
+    strip.text.x = element_text(size = 7, angle = 0),
+    strip.background = element_rect(fill = "grey90", colour = "white")) +
+guides(color = guide_legend(nrow = 3))
+
+girafe(ggobj = plot)
+```
+
+## Beitrag der gymnasialen Mittelschule zur politischen Bildung
+
+### nach Geschlecht
+
+```{r}
+
+pool <- pool %>%  
+         mutate(sex = if_else(sex %in% "MÃ¤nner", "Männer", sex))
+
+polit <- pool %>% 
+    group_by(sex, year) %>% 
+    select(polit_grund, polit_inter) %>% 
+    summarise_all(mean, na.rm=T) %>% 
+   group_by(sex, year) %>% 
+   pivot_longer(cols= 3:4, names_to = "indicator", values_to = "mean") %>% 
+    mutate(indicator = case_when
+           (indicator == "polit_grund" ~ "Beitrag zu guten Grundlagen für das Verständnis politischer Zusammenhänge",
+             indicator == "polit_inter" ~ "Förderung meines Interesses an politischen Zusammenhänegn"),
+             text = paste0(sex, ": ", round(mean, 2))) %>% 
+  filter(!is.na(sex))   
+
+plot <- ggplot(polit, aes(x=year, y=mean, group=sex, colour=sex,
+                      tooltip = text, data_id = sex))+
+    geom_line_interactive(size = 0.6) +
+    geom_point_interactive(size = 1) +
+    facet_wrap(~ indicator, nrow=1, labeller = label_wrap_gen(width = 50)) + 
+    biplaR::scale_colour_zhweb() +
+    scale_y_continuous(limits = c(1,6), breaks = seq(1, 6)) +
+    scale_x_continuous(breaks = c(2018, 2021, 2024)) +
+    theme(panel.grid.major.y = element_line(color = "darkgrey", linewidth =  0.05),
+    panel.grid.major.x = element_blank(),                
+    panel.grid.minor.x = element_blank(),               
+    panel.background = element_rect(fill = "transparent"), 
+    plot.background = element_rect(fill = "transparent"), 
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.text.x = element_text(size = 8, angle = 90), 
+    axis.text.y = element_text(size = 8),
+    axis.title = element_blank(),
+    legend.text = element_text(size = 6),
+    strip.text.x = element_text(size = 7, angle = 0),
+    strip.background = element_rect(fill = "grey90", colour = "white")) +
+guides(color = guide_legend(nrow = 3))
+
+girafe(ggobj = plot)
+
+```
+
+## Politische Bildung nach Geschlecht und Profil
+
+```{r, politische Bildung nach Geschlecht und Profil}
+
+pool <- pool %>%  
+         mutate(sex = if_else(sex %in% "MÃ¤nner", "Männer", sex))
+
+polit <- pool %>%
+    group_by(year, sex, profil) %>% 
+    select(polit_grund) %>% 
+    summarise_all(mean, na.rm=T) %>% 
+    mutate(text = paste0(sex)) %>% 
+    filter(!is.na(profil)) %>% 
+    filter(!is.na(sex))
+
+plot <- ggplot(polit, aes(x=year, y=polit_grund, group=sex, colour=sex,
+                      tooltip = text, data_id = sex))+
+    geom_line_interactive(size = 0.6) +
+    geom_point_interactive(size = 1) +
+    facet_wrap(~ profil, nrow = 2, labeller = label_wrap_gen(width = 50)) + 
+    biplaR::scale_colour_zhweb() +
+    scale_y_continuous(limits = c(1,6), breaks = seq(1, 6)) +
+    scale_x_discrete(breaks = c(2018, 2021, 2024)) +
+    theme(panel.grid.major.y = element_line(color = "darkgrey", linewidth =  0.05),
+    panel.grid.major.x = element_blank(),                
+    panel.grid.minor.x = element_blank(),               
+    panel.background = element_rect(fill = "transparent"), 
+    plot.background = element_rect(fill = "transparent"), 
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.text.x = element_text(size = 8, angle = 90), 
+    axis.text.y = element_text(size = 8),
+    axis.title = element_blank(),
+    legend.text = element_text(size = 6),
+    strip.text.x = element_text(size = 5, angle = 0),
+    strip.background = element_rect(fill = "grey90", colour = "white")) +
+guides(color = guide_legend(nrow = 3))
+
+girafe(ggobj = plot)
+```

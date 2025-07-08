@@ -40,6 +40,8 @@ devtools::load_all("../biplaRseb")
 seb24 <- get_seb(2024, db = F) %>% 
               filter(type %in% "Gymi")
 
+count(seb24, type)
+
 ## Pool Digitaler Wandel
 
 pool24 <- get_seb(2024) %>%

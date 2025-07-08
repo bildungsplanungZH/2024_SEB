@@ -1,0 +1,75 @@
+---
+title: "SEB 2024"
+subtitle: "Explorationen"
+author: 
+  - name: "Olivia Blöchliger
+    email: "vorname.nachname@bi.zh.ch"
+    affiliation: "Bildungsplanung Kanton Zürich"
+date: last-modified
+date-format: "DD.MM.YYYY"
+lang: de
+published-title: "Datum"
+affiliation-title: "Organisationseinheit"
+abstract-title: "Klassifikation"
+abstract: "Öffentlich" 
+
+format: 
+    html:
+        # Themeing
+        theme: _extensions/biplaR-html/style/bipla.scss
+        include-in-header: _extensions/biplaR-html/partials/include-header.html
+        title-block-banner: "#0076BD"
+        css: _extensions/biplaR-html/style/logo.css
+        # Figures
+        fig-cap-location: top
+        fig-align: "left"
+        # TOC and numbering
+        toc: true
+        toc-location: left
+        toc-title: "Inhalt"
+        number-sections: true
+        number-depth: 3
+        # no dependencies
+        embed-resources: true
+        standalone: true
+
+engine: knitr
+execute:
+  warning: false
+  echo: false
+
+---
+
+```{r setup}
+library(devtools)
+library(ggiraph)
+library(biplaR)
+
+devtools::load_all("../biplaRseb")
+seb24 <- get_seb(2024, db = F) %>% 
+              filter(type %in% "Gymi")
+
+```
+
+# Beschreibung der Stichprobe
+
+```{r, description}
+
+count(seb24, activity, profil)
+count(seb24, school_code)
+count(seb24, activity)
+count(seb24, taetigkeit)
+
+```
+
+# Beschreibung der Ergebnisse
+
+```{r}
+
+data <- count(seb24, activity)
+
+ggplot(data, aes(x= activity, y = n)) +
+  geom_col()
+
+```
+

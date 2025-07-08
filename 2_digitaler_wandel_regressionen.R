@@ -56,8 +56,7 @@ anova <- function(data, response_var) {formula <- as.formula(paste(response_var,
   return(summary(model))}
 
 results <- anova(p2, "digi_effizient")
-print(result)
-
+print(results)
 
 ## ANOVA with post-hoc tests
 
@@ -70,7 +69,6 @@ anova <- function(data, response_var) {
     anova = anova_summary,
     posthoc = tukey
   ))}
-
 
 anova <- function(data, response_var) {
   # Ensure year and profil are factors

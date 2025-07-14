@@ -1,0 +1,216 @@
+---
+title: "SEB 2024"
+subtitle: "Explorationen"
+date: last-modified
+date-format: "DD.MM.YYYY"
+lang: de
+published-title: "Datum"
+affiliation-title: "Organisationseinheit"
+abstract-title: "Klassifikation"
+abstract: "Öffentlich" 
+
+format: 
+    html:
+        theme: _extensions/biplaR-html/style/bipla.scss
+        include-in-header: _extensions/biplaR-html/partials/include-header.html
+        title-block-banner: "#0076BD"
+        css: _extensions/biplaR-html/style/logo.css
+        # Figures
+        fig-cap-location: top
+        fig-align: "left"
+        # TOC and numbering
+        toc: true
+        toc-location: left
+        toc-title: "Inhalt"
+        number-sections: true
+        number-depth: 3
+        # no dependencies
+        embed-resources: true
+        standalone: true
+
+engine: knitr
+execute:
+  warning: false
+  echo: false
+
+---
+
+```{r setup}
+library(devtools)
+library(ggiraph)
+library(biplaR)
+
+devtools::load_all("../biplaRseb")
+seb24 <- get_seb(2024, db = F) %>% 
+              filter(type %in% "Gymi")
+
+```
+
+# Beschreibung der Stichprobe
+
+```{r, description}
+
+count(seb24, activity, profil)
+count(seb24, school_code)
+count(seb24, activity)
+count(seb24, taetigkeit)
+
+count(seb24, profil) %>% 
+  filter(!is.na(profil)) %>% 
+ggplot(aes(x=profil, y = n)) +
+  geom_col(fill = "darkblue") +
+  coord_flip() +
+    biplaR::scale_colour_zhweb() +
+    guides(colour = guide_legend(ncol = 2)) +
+    biplaR::getTheme(c("no_axis_title", "no_legend_title")) +
+    theme(panel.grid.major.y = element_line(color = "darkgrey", linewidth =  0.05),      
+    panel.grid.major.x = element_blank(),                  
+    panel.grid.minor.x = element_blank(),                  
+    panel.background = element_rect(fill = "transparent"), 
+    plot.background = element_rect(fill = "transparent"), 
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.title = element_blank())
+
+names(seb24)
+
+```
+
+# Deskriptive Ergebnisse
+
+### Momentane Tätigkeit
+
+```{r}
+
+data <- count(seb24, activity)
+
+ggplot(data, aes(x= activity, y = n)) +
+  geom_col(fill = "darkblue")  +
+    biplaR::scale_colour_zhweb() +
+    guides(colour = guide_legend(ncol = 2)) +
+    biplaR::getTheme(c("no_axis_title", "no_legend_title")) +
+    theme(panel.grid.major.y = element_line(color = "darkgrey", linewidth =  0.05),      
+    panel.grid.major.x = element_blank(),                  
+    panel.grid.minor.x = element_blank(),                  
+    panel.background = element_rect(fill = "transparent"), 
+    plot.background = element_rect(fill = "transparent"), 
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.title = element_blank())
+
+```
+
+### Studienrichtung 
+
+```{r}
+
+plot_by_prefix <- function(data, prefix) {
+  # Select columns that start with the given prefix
+  uni <- dplyr::select(data, starts_with(prefix))
+  
+  new <- uni %>%
+    pivot_longer(cols = everything()) %>%
+    group_by(across(everything())) %>%
+    summarise(N = n(), .groups = "drop") %>%
+    filter(value %in% 1) %>%
+    mutate(name = fct_reorder(name, desc(N)))
+  
+  ggplot(new, aes(x = reorder(name, N), y = N)) +
+    geom_col(fill = "darkblue") +
+    coord_flip() +
+    biplaR::scale_colour_zhweb() +
+    guides(colour = guide_legend(ncol = 2)) +
+    biplaR::getTheme(c("no_axis_title", "no_legend_title")) +
+    theme(
+      panel.grid.major.y = element_line(color = "darkgrey", linewidth = 0.05),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor.x = element_blank(),
+      panel.background = element_rect(fill = "transparent"),
+      plot.background = element_rect(fill = "transparent"),
+      legend.position = "bottom",
+      legend.title = element_blank(),
+      axis.title = element_blank()
+    )
+}
+
+plot_by_prefix(seb24, prefix = "uni_")
+```
+
+```{r}
+
+d <- dplyr::select(seb24, starts_with("uni_"), profil) %>% 
+           filter(!is.na(profil))
+
+plot_by_prefix_profil <- function(data, prefix) {
+
+binary_cols <- names(data)[sapply(data, function(x) all(na.omit(unique(x)) %in% c(0, 1)))]
+binary_cols <- setdiff(binary_cols, "profil")
+
+# Daten umformen und zählen
+new <- data %>%
+  select(profil, all_of(binary_cols)) %>%
+  pivot_longer(cols = -profil) %>%
+  filter(value == 1) %>%
+  group_by(profil, name) %>%
+  summarise(N = n(), .groups = "drop") %>%
+  group_by(profil) %>%
+  mutate(name = fct_reorder(name, N))
+
+ggplot(new, aes(x = name, y = N, fill = profil)) +
+  geom_col(position = "dodge") +
+  facet_wrap(~ profil) +
+  coord_flip() +
+  biplaR::scale_colour_zhweb() +
+  guides(fill = guide_legend(ncol = 2)) +
+  biplaR::getTheme(c("no_axis_title", "no_legend_title")) +
+  theme(
+    panel.grid.major.y = element_line(color = "darkgrey", linewidth = 0.05),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.background = element_rect(fill = "transparent"),
+    plot.background = element_rect(fill = "transparent"),
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    axis.title = element_blank())}
+
+plot_by_prefix_profil(d, "uni_")
+```
+
+### Momentane Haupttätigkeit
+
+```{r}
+plot_by_prefix(seb24, prefix = "agrund_")
+
+d <- dplyr::select(seb24, starts_with("agrund_"), profil) %>% 
+           filter(!is.na(profil))
+
+plot_by_prefix_profil(d, "agrund_")
+
+```
+## Abbruch einer längerfristigen Tätigkeit
+
+```{r}
+plot_by_prefix(seb24, prefix = "abb_")
+
+d <- dplyr::select(seb24, starts_with("abb_"), profil) %>% 
+           filter(!is.na(profil))
+
+plot_by_prefix_profil(d, "abb_")
+```
+### Nationalität der SuS
+
+```{r}
+seb24 %>% 
+  mutate()
+
+count(seb24, nat_ch)
+
+plot_by_prefix(seb24, prefix = "nat_")
+```
+```{r}
+plot_by_prefix(seb24, prefix = "sprach_")
+```
+```{r}
+tibble <- table(seb24$komp_wenig)
+```
+

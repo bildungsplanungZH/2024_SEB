@@ -8,7 +8,7 @@ language:
   title-block-published: "Datum"
 format:
     html:
-        theme: "../quarto_templates/style/bipla.scss"
+        theme: "../biplaRquarto/inst/extdata/_extensions/biplaR-html/style/bipla.scss"
         toc: true
         toc-location: left
         toc-title: "Inhalt"
@@ -17,7 +17,18 @@ format:
         fig-width: 6
         fig-height: 4
         title-block-banner: "#0076BD"
-        css: "../quarto_templates/style/logo.css"
+        css: "../biplaRquarto/inst/extdata/_extensions/biplaR-html/style/logo.css"
+    pdf: 
+        theme: "../biplaRquarto/inst/extdata/_extensions/biplaR-html/style/bipla.scss"
+        toc: true
+        toc-location: left
+        toc-title: "Inhalt"
+        embed-resources: true
+        standalone: true
+        fig-width: 6
+        fig-height: 4
+        title-block-banner: "#0076BD"
+        css: "../biplaRquarto/inst/extdata/_extensions/biplaR-html/style/logo.css"
 
 fig-cap-location: top
         

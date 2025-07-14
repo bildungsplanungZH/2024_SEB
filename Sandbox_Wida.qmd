@@ -1,0 +1,65 @@
+---
+title: "SEB 2024"
+subtitle: "Explorationen WR"
+date: last-modified
+date-format: "DD.MM.YYYY"
+lang: de
+published-title: "Datum"
+affiliation-title: "Organisationseinheit"
+abstract-title: "Klassifikation"
+abstract: "Öffentlich" 
+
+format: 
+    html:
+        theme: _extensions/biplaR-html/style/bipla.scss
+        include-in-header: _extensions/biplaR-html/partials/include-header.html
+        title-block-banner: "#0076BD"
+        css: _extensions/biplaR-html/style/logo.css
+        # Figures
+        fig-cap-location: top
+        fig-align: "left"
+        # TOC and numbering
+        toc: true
+        toc-location: left
+        toc-title: "Inhalt"
+        number-sections: true
+        number-depth: 3
+        # no dependencies
+        embed-resources: true
+        standalone: true
+
+engine: knitr
+execute:
+  warning: false
+  echo: false
+---
+
+## Wahlmodul Lernen
+
+xyz Textvorlage
+
+```{r setup}
+
+library(devtools) ### packages laden
+library(ggiraph) ### interaktive Grafiken
+library(biplaR) ### unsere Templatevorlage
+
+devtools::load_all("../biplaRseb")
+seb24 <- get_seb(2024, db = F) %>%  ### db heisst nicht von der Datenbank sondern von der Aufbereitung
+              filter(type %in% "Gymi")  ###prüfen count type ob es nur gymi hat
+
+table(seb24$type)
+names(seb24)
+count(seb24, type)
+
+```
+
+You can add options to executable code like this
+
+```{r}
+
+D <- select(seb24, starts_with("zlern"))
+
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).

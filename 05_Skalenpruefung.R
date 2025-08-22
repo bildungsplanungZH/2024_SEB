@@ -231,7 +231,7 @@ abline(h=1, col="red", lty=2)
 fa.parallel(fa, fa="fa")
 
 ## define number of factors
-Nfacs <- 16
+Nfacs <- 15
 fit <- factanal((fa), Nfacs, rotation="promax")
 fit <- fa(fa, nfactors = Nfacs, rotate = "oblimin")
 print(fit)
@@ -269,29 +269,75 @@ addWorksheet(wb, "Variable-Factor Mapping")
 writeData(wb, "Variable-Factor Mapping", primary_factor_df)
 saveWorkbook(wb, "variable_factor_mapping.xlsx", overwrite = TRUE)
 
-## Build model CFA
+## Improve model 2
 
-model <- '
-  Factor1 =~ flern_art + flern_atm + flern_kont + flern_mat + flern_meth + flern_pruef + flern_refle + flern_temp + flern_was + flern_zusa
-  Factor2 =~ tis_lern_schul + tis_lern_selbst + tis_lern_zweck + tis_unt_eff + tis_unt_lern + tis_verw_disk + tis_verw_erkl + tis_verw_kont + tis_verw_lern + tis_verw_plan + tis_verw_prod
-  Factor3 =~ blsb_ext + blsb_hilf + blsb_mittel + blsb_unt + blsb_wahl + blsb_zeit + laufbahnu
-  Factor4 =~ schul_eigen + schul_frag + schul_gruppe + schul_idee + schul_info + schul_kritik + schul_prae + schul_schw + schul_selbt + schul_urteil + schul_wort +  polit_grund + polit_inter
-  Factor5 =~ tis_lehrp_bera + tis_lehrp_faecher + tis_lehrp_konz + tis_lehrp_pos + tis_lehrp_umge + tis_vorr_inter + tis_vorr_soft + tis_vorr_unterstlp
-  Factor6 =~ stmk_info + stmk_prae + stmk_strate + stmk_wort + stpk_frag + stpk_idee + stpk_urteil + stsk_gruppe + stsk_konfl + stsk_kritik + stsk_zusamm
-  Factor7 =~ schul_achte + schul_rueck + schul_zusamm + stsk_achte + stsk_rueck 
-  Factor8 =~ schul_plan + schul_strate + schul_ueber + schul_ziel + stmk_plan + stmk_ziel
-  Factor9 =~ schul_time + schul_eigen + schul_selbt + stpk_time
-  Factor10 =~ schul_it + stmk_it'
+fa <- fa %>% 
+       select(-tis_vorr_andere, -vorb_pers, -tis_vorr_support, -tis_vorr_eltern, -vorb_fach, -tis_vorr_soft)
 
-fit <- cfa(model, data = seb24, estimator = "MLR")  # MLR is robust maximum likelihood
+# See how many missing values per variable
+sort(colSums(is.na(fa)), decreasing = TRUE)
+colSums(is.na(fa))  
+sum(is.na(fa))  
 
-## Fit indices: RMSEA and SRMR okay, CFI & TLI: not met
+# Visualise missingness
+vis_miss(fa)
 
-fitMeasures(fit, c("chisq", "df", "pvalue", "rmsea", "rmsea.ci.lower", "rmsea.ci.upper", "cfi", "tli", "srmr"))
+# Tabular missing pattern
+tibble <- md.pattern(fa)
 
-fit <- cfa(model, data = seb24)  
-mod_indices <- modificationIndices(fit)
+# impute NA
+method <- make.method(fa)
+method <- rep("pmm", ncol(fa))
+names(method) <- names(fa)
 
-mod_indices %>%
-  dplyr::filter(mi > 10) %>%
-  dplyr::arrange(desc(mi))
+# Run mice imputation
+library(mice)
+imp <- mice(fa, m = 5, method = method, seed = 123)
+
+# Get the first completed dataset
+fa <- complete(imp, 1)
+
+# Optional: check imputed values
+summary(imp)
+
+## Check requirements
+KMO(cor(fa))        # KMO measure
+cortest.bartlett(cor(fa), n = nrow(fa))  
+
+## EFA
+ev <- eigen(cor(fa))
+ev$values
+scree(fa, pc=FALSE) 
+plot(ev$values, type = "b", xlab = "Factor number", ylab = "Eigenvalue",
+     main = "Scree Plot")
+abline(h=1, col="red", lty=2)
+
+## Double check
+fa.parallel(fa, fa="fa")
+
+## define number of factors
+Nfacs <- 14
+fit <- factanal((fa), Nfacs, rotation="promax")
+fit <- fa(fa, nfactors = Nfacs, rotate = "oblimin")
+print(fit)
+print(fit, digits=2, cutoff=0.3, sort=TRUE)
+
+# Compare factor loadings side by side
+print(fit$loadings, cutoff = 0.3)        # oblimin loadings
+print(fit_promax$loadings, cutoff = 0.3) # promax loadings
+
+loadings_df <- as.data.frame.matrix(unclass(fit$loadings))
+loadings_mat <- unclass(fit$loadings)  
+
+primary_factor_df <- data.frame(
+  Variable = rownames(loadings_mat),
+  Factor = colnames(loadings_mat)[apply(abs(loadings_mat), 1, which.max)],
+  Loading = apply(loadings_mat, 1, function(x) x[which.max(abs(x))]),
+  row.names = NULL)
+
+## Save results in an excel
+wb <- createWorkbook()
+addWorksheet(wb, "Variable-Factor Mapping")
+writeData(wb, "Variable-Factor Mapping", primary_factor_df)
+saveWorkbook(wb, "variable_factor_mapping.xlsx", overwrite = TRUE)
+
